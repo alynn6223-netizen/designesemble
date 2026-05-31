@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VD Commons</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar" aria-label="월드와 사용자 설정">
+      <div class="brand">
+        <div class="brand-mark">VD</div>
+        <div>
+          <h1>VD Commons</h1>
+          <p>영상디자인학과 정보 모임</p>
+        </div>
+      </div>
+
+      <section class="panel">
+        <div class="panel-head">
+          <h2>내 정보</h2>
+          <button class="icon-button" id="saveProfile" title="저장">✓</button>
+        </div>
+        <div class="field-grid">
+          <label>이름<input id="nameInput" type="text" value="아린"></label>
+          <label>학년
+            <select id="gradeInput">
+              <option>1</option>
+              <option selected>2</option>
+              <option>3</option>
+              <option>4</option>
+            </select>
+          </label>
+          <label>학번<input id="studentIdInput" type="text" value="20241234"></label>
+          <label>나이<input id="ageInput" type="number" value="21"></label>
+          <label class="wide">세부전공<input id="majorInput" type="text" value="모션그래픽"></label>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <h2>캐릭터</h2>
+          <div class="avatar-preview" id="avatarPreview" aria-hidden="true"></div>
+        </div>
+        <div class="animal-grid" id="animalPicker" role="group" aria-label="동물 선택">
+          <button data-animal="dog">강아지</button>
+          <button data-animal="cat" class="active">고양이</button>
+          <button data-animal="rabbit">토끼</button>
+          <button data-animal="bear">곰</button>
+          <button data-animal="squirrel">다람쥐</button>
+          <button data-animal="parrot">앵무새</button>
+          <button data-animal="pigeon">비둘기</button>
+          <button data-animal="snake">뱀</button>
+          <button data-animal="hamster">햄스터</button>
+          <button data-animal="raccoon">너구리</button>
+        </div>
+        <div class="segmented compact" id="accessoryPicker" role="group" aria-label="장신구 선택">
+          <button data-accessory="none" class="active">없음</button>
+          <button data-accessory="cap">캡</button>
+          <button data-accessory="ribbon">리본</button>
+          <button data-accessory="glasses">안경</button>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <h2>월드</h2>
+          <button class="primary-small" id="newWorld">새 월드</button>
+        </div>
+        <div class="world-list" id="worldList"></div>
+      </section>
+    </aside>
+
+    <main class="workspace">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow" id="worldPurpose">비교과 추천</p>
+          <h2 id="worldTitle">2학년 포트폴리오 정보 보드</h2>
+        </div>
+        <div class="toolbar" aria-label="캔버스 편집 도구">
+          <button class="tool active" id="selectTool" title="선택">↖</button>
+          <button class="tool" id="drawTool" title="붓그리기">✎</button>
+          <button class="tool" id="pixelEraseTool" title="픽셀 지우기">□</button>
+          <button class="tool" id="strokeEraseTool" title="획 지우기">⌁</button>
+          <label class="tool-label compact-range" title="붓과 지우개 크기">Size <input id="brushSize" type="range" min="4" max="34" value="10"></label>
+          <label class="tool-label" title="글자 크기">Aa <input id="fontSize" type="range" min="12" max="28" value="16"></label>
+          <label class="color-field" title="흰 공간 밖 배경색">BG <input id="backgroundColor" type="color" value="#bfeefa"></label>
+          <button class="tool" id="clearInk" title="그림 지우기">⌫</button>
+          <button class="primary" id="addBlock">레이아웃 추가</button>
+        </div>
+      </header>
+
+      <section class="canvas-stage" id="dropZone">
+        <div class="canvas-frame" id="canvasFrame">
+          <canvas id="inkCanvas"></canvas>
+          <div class="iso-room" id="isoRoom" aria-hidden="true">
+            <div class="iso-floor"></div>
+            <div class="iso-wall left"></div>
+            <div class="iso-wall right"></div>
+          </div>
+          <div class="board" id="board" aria-label="공유 캔버스"></div>
+          <div class="player" id="player" tabindex="0" aria-label="내 캐릭터"></div>
+          <div class="bubble hidden" id="chatBubble"></div>
+          <div class="edge-bubble hidden" id="edgeBubble"></div>
+        </div>
+      </section>
+
+      <footer class="chatbar">
+        <div class="presence">
+          <span class="dot"></span>
+          <span id="presenceText">동기 8명 접속 중</span>
+        </div>
+        <input id="chatInput" type="text" placeholder="대화를 입력하면 캐릭터 옆 말풍선으로 떠요">
+        <button id="sendChat" class="primary">전송</button>
+      </footer>
+    </main>
+  </div>
+
+  <dialog id="worldDialog">
+    <form method="dialog" class="dialog-card">
+      <div class="dialog-head">
+        <h2>새 월드 만들기</h2>
+        <button value="cancel" class="icon-button">×</button>
+      </div>
+      <label>월드 이름<input id="worldNameInput" type="text" value="새 정보 월드"></label>
+      <label>목적
+        <select id="purposeInput">
+          <option>수업 공지</option>
+          <option>스터디 모집</option>
+          <option selected>비교과 추천</option>
+          <option>공모전 및 대외활동</option>
+          <option>전시회</option>
+          <option>Q&A</option>
+        </select>
+      </label>
+      <label>접속 가능 학년
+        <select id="gradeLimitInput">
+          <option value="all">전체</option>
+          <option value="1">1학년</option>
+          <option value="2" selected>2학년</option>
+          <option value="3">3학년</option>
+          <option value="4">4학년</option>
+        </select>
+      </label>
+      <label>캔버스 형태
+        <select id="canvasTypeInput">
+          <option value="flat">넓은 흰 2D 캔버스</option>
+          <option value="iso" selected>아이소메트릭 3D 캔버스</option>
+        </select>
+      </label>
+      <label>흰 공간 밖 배경색<input id="newWorldBackgroundInput" type="color" value="#bfeefa"></label>
+      <button id="createWorld" value="default" class="primary full">만들기</button>
+    </form>
+  </dialog>
+
+  <dialog id="blockDialog">
+    <form method="dialog" class="dialog-card">
+      <div class="dialog-head">
+        <h2>레이아웃 선택</h2>
+        <button value="cancel" class="icon-button">×</button>
+      </div>
+      <div class="block-options" id="blockOptions"></div>
+    </form>
+  </dialog>
+
+  <script src="app.js"></script>
+</body>
+</html>
