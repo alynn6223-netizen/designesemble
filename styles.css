@@ -474,7 +474,44 @@ textarea:focus {
   resize: both;
   overflow: auto;
   transform-origin: 50% 100%;
-  transition: box-shadow 160ms ease, transform 160ms ease;
+  transform-style: preserve-3d;
+  backface-visibility: hidden;
+  transition: box-shadow 160ms ease, transform 160ms ease, opacity 160ms ease;
+}
+
+.owner-tools {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 4;
+  display: flex;
+  gap: 6px;
+}
+
+.corner-tool,
+.corner-edit {
+  display: grid;
+  min-width: 30px;
+  height: 28px;
+  place-items: center;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.86);
+  color: var(--ink);
+  box-shadow: 0 6px 16px rgba(21, 28, 36, 0.08);
+  font-size: 12px;
+}
+
+.corner-edit {
+  padding: 0 8px;
+  font-weight: 700;
+}
+
+.corner-tool.active,
+.corner-edit.active {
+  border-color: var(--accent);
+  background: var(--accent-weak);
+  color: var(--accent);
 }
 
 .info-block.selected {
@@ -482,15 +519,34 @@ textarea:focus {
 }
 
 .info-block.plane-floor {
-  transform: rotateX(58deg) rotateZ(45deg) scale(0.82);
+  box-shadow: 0 8px 0 rgba(0, 0, 0, 0.04), 0 18px 28px rgba(21, 28, 36, 0.08);
+  transform: perspective(900px) rotateX(58deg) rotateZ(45deg) scale(0.78);
+  transform-origin: 50% 55%;
 }
 
 .info-block.plane-wall-left {
-  transform: skewY(-26deg) scaleX(0.9);
+  box-shadow: -7px 7px 0 rgba(0, 0, 0, 0.05), -16px 18px 24px rgba(21, 28, 36, 0.08);
+  transform: perspective(900px) rotateY(-46deg) skewY(-18deg) scaleX(0.78) scaleY(0.9);
+  transform-origin: 100% 50%;
 }
 
 .info-block.plane-wall-right {
-  transform: skewY(26deg) scaleX(0.9);
+  box-shadow: 7px 7px 0 rgba(0, 0, 0, 0.05), 16px 18px 24px rgba(21, 28, 36, 0.08);
+  transform: perspective(900px) rotateY(46deg) skewY(18deg) scaleX(0.78) scaleY(0.9);
+  transform-origin: 0 50%;
+}
+
+.info-block.plane-wall-left::before,
+.info-block.plane-wall-right::before,
+.info-block.plane-floor::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background: rgba(255, 255, 255, 0.34);
+  transform: translateZ(-2px);
+  pointer-events: none;
 }
 
 .block-header {
@@ -538,6 +594,30 @@ textarea:focus {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
+}
+
+.layout-editor {
+  display: grid;
+  gap: 8px;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.72);
+  padding: 9px;
+}
+
+.layout-editor label {
+  display: grid;
+  grid-template-columns: 48px 1fr;
+  gap: 8px;
+  align-items: center;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.layout-editor input {
+  border: 0;
+  padding: 0;
+  box-shadow: none;
 }
 
 .plane-controls button {

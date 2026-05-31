@@ -129,6 +129,9 @@ function load() {
       if (!world.strokes) world.strokes = [];
       world.blocks.forEach((block) => {
         if (!block.plane) block.plane = "free";
+        if (!block.opacity) block.opacity = 1;
+        if (typeof block.textEditing !== "boolean") block.textEditing = false;
+        if (typeof block.showEditor !== "boolean") block.showEditor = false;
       });
     });
     if (!animalPresets[state.avatar.animal]) state.avatar.animal = "cat";
@@ -214,6 +217,7 @@ function renderBlocks() {
     card.style.top = `${block.y}px`;
     card.style.width = `${block.width}px`;
     card.style.minHeight = `${block.height}px`;
+    card.style.opacity = block.opacity || 1;
     card.style.setProperty("--block-font", `${block.fontSize || 16}px`);
     card.style.setProperty("--block-bg", `hsl(${block.hue} 100% 96%)`);
     card.style.setProperty("--block-border", `hsl(${block.hue} 100% 82%)`);
@@ -223,6 +227,21 @@ function renderBlocks() {
 }
 
 function blockTemplate(block) {
+  const isOwner = block.owner === state.profile.name;
+  const isEditing = isOwner && block.textEditing;
+  const ownerTools = isOwner ? `
+    <div class="owner-tools" aria-label="작성자 편집 도구">
+      <button class="corner-tool ${isEditing ? "active" : ""}" data-action="toggle-text-edit" title="수정">✎</button>
+      <button class="corner-edit ${block.showEditor ? "active" : ""}" data-action="toggle-editor">편집</button>
+    </div>
+  ` : "";
+  const editorPanel = isOwner && block.showEditor ? `
+    <div class="layout-editor">
+      <label>너비 <input type="range" min="240" max="620" value="${block.width}" data-size-field="width"></label>
+      <label>높이 <input type="range" min="180" max="520" value="${block.height}" data-size-field="height"></label>
+      <label>투명도 <input type="range" min="35" max="100" value="${Math.round((block.opacity || 1) * 100)}" data-size-field="opacity"></label>
+    </div>
+  ` : "";
   const planeControls = `
     <div class="plane-controls" aria-label="붙일 면 선택">
       ${[
@@ -234,9 +253,10 @@ function blockTemplate(block) {
     </div>
   `;
   const header = `
+    ${ownerTools}
     <div class="block-header">
       <div>
-        <h3 contenteditable="true" data-field="title">${block.title}</h3>
+        <h3 contenteditable="${isEditing}" data-field="title">${block.title}</h3>
         <p class="meta">${block.owner} 생성 · 참여 ${block.participants.length}명</p>
       </div>
       <span class="block-tag">${block.label}</span>
@@ -247,11 +267,11 @@ function blockTemplate(block) {
     <div class="block-actions">
       <button class="ghost-button" data-action="join">참여하기</button>
       <button class="ghost-button" data-action="comment">댓글 달기</button>
-      <button class="ghost-button" data-action="delete">삭제</button>
+      ${isOwner ? '<button class="ghost-button" data-action="delete">삭제</button>' : ""}
     </div>
   `;
 
-  return `${header}${planeControls}<div class="block-body">${blockBody(block)}</div>${actions}`;
+  return `${header}${editorPanel}${planeControls}<div class="block-body">${blockBody(block)}</div>${actions}`;
 }
 
 function blockBody(block) {
@@ -320,6 +340,9 @@ function addBlock(type) {
     y: 110 + currentWorld().blocks.length * 28,
     width: 310,
     height: 230,
+    opacity: 1,
+    textEditing: false,
+    showEditor: false,
     fontSize: Number(document.querySelector("#fontSize").value),
     plane: "free"
   };
@@ -354,10 +377,6 @@ function renderWorldHeader() {
   canvasFrame.style.setProperty("--world-bg", frameBg);
   document.querySelector("#backgroundColor").value = world.bgColor || (world.canvasType === "iso" ? "#bfeefa" : "#ffffff");
   document.querySelector("#backgroundColor").disabled = world.canvasType !== "iso";
-  ["#drawTool", "#pixelEraseTool", "#strokeEraseTool", "#brushSize"].forEach((selector) => {
-    document.querySelector(selector).disabled = world.canvasType !== "iso";
-  });
-  if (world.canvasType !== "iso" && ["draw", "erase-pixel", "erase-stroke"].includes(state.tool)) setTool("select");
 }
 
 function renderPlayer() {
@@ -366,6 +385,7 @@ function renderPlayer() {
   const depthScale = 0.82 + (state.player.y / 980) * 0.24;
   player.style.transform = `translate(-50%, -50%) scale(${depthScale.toFixed(3)})`;
   player.style.zIndex = String(5 + Math.round(state.player.y));
+  positionChatBubble();
 }
 
 function animateMovement(timestamp = 0) {
@@ -427,10 +447,6 @@ function findBlock(id) {
 
 function setTool(tool) {
   const inkTools = ["draw", "erase-pixel", "erase-stroke"];
-  if (inkTools.includes(tool) && currentWorld().canvasType !== "iso") {
-    showEdgeBubble("붓과 지우개는 3D 아이소메트릭 캔버스에서만 사용할 수 있어요.", "right");
-    tool = "select";
-  }
   state.tool = tool;
   document.querySelector("#selectTool").classList.toggle("active", tool === "select");
   document.querySelector("#drawTool").classList.toggle("active", tool === "draw");
@@ -496,6 +512,10 @@ function eraseStrokeAt(point) {
   }
 }
 
+function isInteractiveBlockTarget(target) {
+  return !!target.closest("button, input, textarea, select, label, [contenteditable='true'], .layout-editor, .plane-controls, .block-actions, .owner-tools");
+}
+
 function pointerPoint(event) {
   const rect = canvasFrame.getBoundingClientRect();
   return {
@@ -518,34 +538,74 @@ function inPolygon(point, polygon) {
   return inside;
 }
 
-function isInsideIsoCanvas(point) {
-  if (currentWorld().canvasType !== "iso") return false;
-  const floor = [
-    { x: 770, y: 420 },
-    { x: 1080, y: 575 },
-    { x: 770, y: 730 },
-    { x: 460, y: 575 }
-  ];
-  const leftWall = [
-    { x: 770, y: 180 },
-    { x: 770, y: 421 },
-    { x: 460, y: 575 },
-    { x: 460, y: 334 }
-  ];
-  const rightWall = [
-    { x: 770, y: 180 },
-    { x: 1080, y: 334 },
-    { x: 1080, y: 575 },
-    { x: 770, y: 421 }
-  ];
-  return [floor, leftWall, rightWall].some((polygon) => inPolygon(point, polygon));
+function isoSurfaces() {
+  return {
+    floor: [
+      { x: 770, y: 420 },
+      { x: 1080, y: 575 },
+      { x: 770, y: 730 },
+      { x: 460, y: 575 }
+    ],
+    "wall-left": [
+      { x: 770, y: 180 },
+      { x: 770, y: 421 },
+      { x: 460, y: 575 },
+      { x: 460, y: 334 }
+    ],
+    "wall-right": [
+      { x: 770, y: 180 },
+      { x: 1080, y: 334 },
+      { x: 1080, y: 575 },
+      { x: 770, y: 421 }
+    ]
+  };
+}
+
+function detectIsoSurface(point) {
+  if (currentWorld().canvasType !== "iso") return "free";
+  const surfaces = isoSurfaces();
+  if (inPolygon(point, surfaces["wall-left"])) return "wall-left";
+  if (inPolygon(point, surfaces["wall-right"])) return "wall-right";
+  if (inPolygon(point, surfaces.floor)) return "floor";
+  return "free";
+}
+
+function blockCenter(block) {
+  return {
+    x: block.x + block.width / 2,
+    y: block.y + block.height / 2
+  };
+}
+
+function planeClass(plane) {
+  return `plane-${plane || "free"}`;
+}
+
+function updateBlockPlaneElement(element, plane) {
+  ["plane-free", "plane-floor", "plane-wall-left", "plane-wall-right"].forEach((className) => {
+    element.classList.remove(className);
+  });
+  element.classList.add(planeClass(plane));
+}
+
+function isInsideDrawableCanvas(point) {
+  if (currentWorld().canvasType !== "iso") {
+    return point.x >= 0 && point.x <= canvasFrame.clientWidth && point.y >= 0 && point.y <= canvasFrame.clientHeight;
+  }
+  const surfaces = isoSurfaces();
+  return Object.values(surfaces).some((polygon) => inPolygon(point, polygon));
+}
+
+function positionChatBubble() {
+  if (chatBubble.classList.contains("hidden")) return;
+  chatBubble.style.left = `${state.player.x + 24}px`;
+  chatBubble.style.top = `${state.player.y - 76}px`;
 }
 
 function showBubble(message) {
   chatBubble.textContent = message;
   chatBubble.classList.remove("hidden");
-  chatBubble.style.left = `${state.player.x + 24}px`;
-  chatBubble.style.top = `${state.player.y - 76}px`;
+  positionChatBubble();
   window.clearTimeout(showBubble.timeout);
   showBubble.timeout = window.setTimeout(() => chatBubble.classList.add("hidden"), 3600);
 }
@@ -648,7 +708,7 @@ function setupEvents() {
     const card = event.target.closest(".info-block");
     if (!card || state.tool !== "select") return;
     selectBlock(card.dataset.id);
-    if (!event.target.closest(".block-header")) return;
+    if (isInteractiveBlockTarget(event.target)) return;
     const block = findBlock(card.dataset.id);
     const point = pointerPoint(event);
     dragTarget = block;
@@ -662,20 +722,45 @@ function setupEvents() {
     const point = pointerPoint(event);
     dragTarget.x = Math.max(12, point.x - dragOffset.x);
     dragTarget.y = Math.max(12, point.y - dragOffset.y);
+    if (currentWorld().canvasType === "iso") {
+      dragTarget.plane = detectIsoSurface(blockCenter(dragTarget));
+    }
     if (dragElement) {
       dragElement.style.left = `${dragTarget.x}px`;
       dragElement.style.top = `${dragTarget.y}px`;
+      updateBlockPlaneElement(dragElement, dragTarget.plane);
     }
   });
 
   board.addEventListener("pointerup", () => {
     if (!dragTarget) return;
+    if (currentWorld().canvasType === "iso") {
+      dragTarget.plane = detectIsoSurface(blockCenter(dragTarget));
+      renderBlocks();
+    }
     dragTarget = null;
     dragElement = null;
     save();
   });
 
   board.addEventListener("click", (event) => {
+    const toolButton = event.target.closest("[data-action='toggle-text-edit'], [data-action='toggle-editor']");
+    if (toolButton) {
+      const card = event.target.closest(".info-block");
+      const block = findBlock(card.dataset.id);
+      if (block.owner !== state.profile.name) return;
+      if (toolButton.dataset.action === "toggle-text-edit") {
+        block.textEditing = !block.textEditing;
+      }
+      if (toolButton.dataset.action === "toggle-editor") {
+        block.showEditor = !block.showEditor;
+      }
+      selectedBlockId = block.id;
+      renderBlocks();
+      save();
+      return;
+    }
+
     const planeButton = event.target.closest("[data-plane]");
     if (planeButton) {
       const card = event.target.closest(".info-block");
@@ -697,6 +782,7 @@ function setupEvents() {
       showBubble("댓글은 블럭 안 텍스트 영역에 바로 적어볼 수 있어요.");
     }
     if (action === "delete") {
+      if (block.owner !== state.profile.name) return;
       currentWorld().blocks = currentWorld().blocks.filter((item) => item.id !== block.id);
       selectedBlockId = null;
     }
@@ -706,9 +792,26 @@ function setupEvents() {
 
   board.addEventListener("input", (event) => {
     const card = event.target.closest(".info-block");
+    const sizeField = event.target.dataset.sizeField;
+    if (card && sizeField) {
+      const block = findBlock(card.dataset.id);
+      if (block.owner !== state.profile.name) return;
+      if (sizeField === "opacity") {
+        block.opacity = Number(event.target.value) / 100;
+        card.style.opacity = block.opacity;
+      } else {
+        block[sizeField] = Number(event.target.value);
+        if (sizeField === "width") card.style.width = `${block.width}px`;
+        if (sizeField === "height") card.style.minHeight = `${block.height}px`;
+      }
+      save();
+      return;
+    }
+
     const field = event.target.dataset.field;
     if (!card || !field) return;
     const block = findBlock(card.dataset.id);
+    if (block.owner !== state.profile.name || !block.textEditing) return;
     block[field] = event.target.textContent.trim() || block[field];
     save();
   });
@@ -716,7 +819,7 @@ function setupEvents() {
   inkCanvas.addEventListener("pointerdown", (event) => {
     if (!["draw", "erase-pixel", "erase-stroke"].includes(state.tool)) return;
     const point = pointerPoint(event);
-    if (!isInsideIsoCanvas(point)) return;
+    if (!isInsideDrawableCanvas(point)) return;
     if (state.tool === "erase-stroke") {
       isDrawing = true;
       eraseStrokeAt(point);
@@ -740,12 +843,12 @@ function setupEvents() {
     if (state.tool === "erase-stroke") {
       if (!isDrawing) return;
       const point = pointerPoint(event);
-      if (isInsideIsoCanvas(point)) eraseStrokeAt(point);
+      if (isInsideDrawableCanvas(point)) eraseStrokeAt(point);
       return;
     }
     if (!isDrawing || !activeStroke) return;
     const point = pointerPoint(event);
-    if (!isInsideIsoCanvas(point)) {
+    if (!isInsideDrawableCanvas(point)) {
       isDrawing = false;
       currentWorld().strokes.push(activeStroke);
       activeStroke = null;
@@ -814,6 +917,9 @@ function setupEvents() {
         y: pointerPoint(event).y,
         width: 320,
         height: 260,
+        opacity: 1,
+        textEditing: false,
+        showEditor: false,
         fontSize: 16,
         src: reader.result,
         plane: "free"
